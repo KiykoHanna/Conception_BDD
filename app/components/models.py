@@ -1,6 +1,12 @@
 # import
-from sqlalchemy import Column, Integer, String, ForeignKey, create_engine
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from datetime import datetime
+import pandas as pd
+import numpy as np
+from passlib.hash import argon2
+
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, create_engine
+from sqlalchemy.orm import relationship, declarative_base, sessionmaker
+from sqlalchemy.sql import func
 
 # Creation structure de base
 Base = declarative_base()
@@ -22,21 +28,36 @@ class Region(Base):
 
 class DonnePersonnel(Base):
     __tablename__ = "donnes_personnels"
+
     client_id = Column(Integer,ForeignKey("clients.client_id"), primary_key=True)
-    login = Column(String)
-    mot_de_passe = Column(String)
+    # PII
+    login = Column(String, unique=True)
+    mot_de_passe_hash = Column(String)  
+    # RGPD
+    date_suppression = Column(DateTime, nullable=True)
+    anonymise = Column(Boolean, default=False)
+    
     # relationship
-    client = relationship("Client", back_populates="donnes")
+    client = relationship("Client", back_populates="donnees")
 
 class Client(Base):
     __tablename__ = "clients"
+
     client_id = Column(Integer, primary_key=True)
     age_id = Column(Integer, ForeignKey("ages.age_id"))
     region_id = Column(Integer, ForeignKey("regions.region_id"))
+
+    # RGPD
+    date_creation = Column(DateTime(timezone=True), server_default=func.now())
+    date_derniere_utilisation = Column(DateTime(timezone=True), server_default=func.now())
+    
     # relation
     age = relationship("Age", back_populates="clients")
     region = relationship("Region", back_populates="clients")
-    donnes = relationship("DonnePersonnel", back_populates="client", uselist=False)
+    donnees = relationship("DonnePersonnel",
+                           back_populates="client",
+                           uselist=False,
+                           cascade="all, delete-orphan")
     commandes = relationship("Commande", back_populates="client")
 
 #Produit
@@ -97,4 +118,3 @@ class Commande(Base):
     #relations
     client = relationship("Client", back_populates="commandes")
     produit = relationship("Produit", back_populates="commande")
-
