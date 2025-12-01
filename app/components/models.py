@@ -1,15 +1,20 @@
 # import
-from datetime import datetime
-import pandas as pd
-import numpy as np
-from passlib.hash import argon2
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, create_engine
-from sqlalchemy.orm import relationship, declarative_base, sessionmaker
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
+from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
+
 
 # Creation structure de base
 Base = declarative_base()
+
+# table d'assosiation
+promotions_regions = Table(
+    "promotions_regions",
+    Base.metadata,
+    Column("promotion_id", Integer, ForeignKey("promotions.promotion_id"), primary_key=True),
+    Column("region_id", Integer, ForeignKey("regions.region_id"), primary_key=True)
+)
 
 #Client
 class Age(Base):
@@ -25,6 +30,7 @@ class Region(Base):
     region_nom = Column(String)
     # relationship
     clients = relationship("Client", back_populates="region")
+    promotions = relationship("Promotion", secondary= promotions_regions , back_populates="regions")
 
 class DonnePersonnel(Base):
     __tablename__ = "donnes_personnels"
@@ -60,7 +66,7 @@ class Client(Base):
                            cascade="all, delete-orphan")
     commandes = relationship("Commande", back_populates="client")
 
-#Produit
+    #Produit
 
 class Platform(Base):
     __tablename__ = "platforms"
@@ -106,6 +112,19 @@ class Produit(Base):
     genre = relationship("Genre", back_populates="produits")
     publisher = relationship("Publisher", back_populates="produits")
     commande = relationship("Commande", back_populates="produit")
+    promotions = relationship("Promotion", back_populates="produit")
+
+    # Promotions
+
+class Promotion(Base):
+    __tablename__ = "promotions"
+    promotion_id = Column(Integer, primary_key=True)
+    promotion_percent = Column(Integer)
+    produit_id = Column(Integer, ForeignKey("produits.produit_id"))
+    # relations
+    produit = relationship("Produit", back_populates="promotions")
+    commandes = relationship("Commande", back_populates="promotion")
+    regions = relationship("Region", secondary=promotions_regions, back_populates="promotions")
 
 # Commande
 
@@ -115,9 +134,11 @@ class Commande(Base):
     nb_produit = Column(Integer)
     client_id = Column(Integer, ForeignKey("clients.client_id"))
     produit_id = Column(Integer, ForeignKey("produits.produit_id"))
+    promotion_id = Column(Integer, ForeignKey("promotions.promotion_id"), nullable=True)
     #relations
     client = relationship("Client", back_populates="commandes")
     produit = relationship("Produit", back_populates="commande")
+    promotion = relationship("Promotion", back_populates="commandes")
 
 # Logging
 
