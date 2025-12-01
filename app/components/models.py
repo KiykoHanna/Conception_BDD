@@ -118,3 +118,14 @@ class Commande(Base):
     #relations
     client = relationship("Client", back_populates="commandes")
     produit = relationship("Produit", back_populates="commande")
+
+# Logging
+
+class Log(Base):
+    __tablename__ = "logs"
+    log_id = Column(Integer, primary_key=True)
+    horodatage = Column(DateTime(timezone=True), server_default=func.now())
+    type_action = Column(String)
+    table_cible = Column(String)
+    client_id = Column(Integer)
+    details = Column(String, nullable=True)
