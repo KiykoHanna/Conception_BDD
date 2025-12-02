@@ -1,10 +1,10 @@
 # import
-
+from sqlalchemy.sql import func
 from components.models import Client, DonnePersonnel, Commande, Produit, Promotion, Age, Region
 from sqlalchemy.orm import Session
 
 
-# Function pour creater un Client, DonnePersonnel, Commande, Produit, Promotion
+# Function pour CREATE un Client, DonnePersonnel, Commande, Produit, Promotion
 def create_client(session: Session, age_id:int, region_id:int):
     """Create and persist a new Client in the database.
 
@@ -109,4 +109,101 @@ def create_promotion(session: Session, produit_id:int, promotion_percent:int, re
     except Exception as e:
         session.rollback()
         raise e
+
+# READ
+
+
+
+# UPDATE
+
+def update_table(session: Session, table_nom, data_id, **kwargs):
+    """
+    Met à jour les colonnes spécifiées d'un enregistrement dans une table SQLAlchemy.
+
+    Args:
+        table_nom (DeclarativeMeta): La classe SQLAlchemy représentant la table.
+        data_id (int): L'identifiant de l'enregistrement à mettre à jour.
+        **kwargs: Paires clé-valeur représentant les colonnes à modifier et leurs nouvelles valeurs.
+                  Exemple : age_id=1, region_id=0
+
+    Behavior spécifique:
+        - Si la table est `Client`, la colonne `date_derniere_utilisation` sera mise à jour avec l'heure actuelle.
+
+    Returns:
+        None si l'objet avec `data_id` n'existe pas. Sinon, commit les changements dans la base de données.
+
+    Exemple:
+        update_table(Client, 51, age_id=1, region_id=0)
+    """
+    obj = session.get(table_nom, data_id)
+    if not obj:
+        return None
     
+    for field, value in kwargs.items():
+        setattr(obj, field, value)
+    
+
+    if table_nom is Client:
+        obj.date_derniere_utilisation = func.now()
+        
+    session.commit()
+    print(f"L’enregistrement dans {table_nom.__tablename__} a été renouvelé.")
+
+
+
+# DELETE
+def delete_objet(session: Session, table_nom, data_id):
+    """
+    Supprime un enregistrement spécifique d'une table SQLAlchemy.
+
+    Args:
+        table_nom (DeclarativeMeta): La classe SQLAlchemy représentant la table.
+        data_id (int): L'identifiant de l'enregistrement à supprimer.
+
+    Behavior:
+        - Cherche l'objet dans la base via `session.get`.
+        - Si l'objet existe, le supprime et commit la transaction.
+        - Si l'objet n'existe pas, aucune suppression n'est effectuée.
+        - Capture les exceptions et affiche un message d'erreur.
+
+    Returns:
+        None
+
+    Exemple:
+        delete_objet(Client, 51)
+    """
+    try:
+        obj = session.get(table_nom, data_id)
+        if obj is not None:
+            session.delete(obj)
+        session.commit()
+    except Exception as e:
+        print(e)
+
+def delete_filtre(session: Session, table_nom, filter_exp):
+    """
+    Supprime tous les enregistrements d'une table SQLAlchemy correspondant à un filtre donné.
+
+    Args:
+        table_nom (DeclarativeMeta): La classe SQLAlchemy représentant la table.
+        filter_exp: Expression de filtre SQLAlchemy pour sélectionner les enregistrements à supprimer.
+                    Exemple : Client.age_id == 1
+
+    Behavior:
+        - Crée une requête avec `session.query(table_nom).filter(filter_exp)`.
+        - Supprime tous les enregistrements filtrés via `.delete()`.
+        - Capture les exceptions et affiche un message d'erreur.
+
+    Returns:
+        None
+
+    Exemple:
+        delete_filtre(Client, Client.age_id == 1)
+    """
+    try:
+        query = session.query(table_nom).filter(filter_exp)
+        query.delete(synchronize_session=False)
+        session.commit()
+
+    except Exception as e:
+        print(e)

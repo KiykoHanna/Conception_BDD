@@ -36,7 +36,7 @@ def menu_admin():
                 case "r":
                     read_menu()
                 case "u":
-                    update_menu()
+                    update_table(table_nom, data_id, **kwargs)
                 case "d":
                     delete_menu()
                 case _:
@@ -79,6 +79,29 @@ def creation_menu():
                     create_commande(session: Session, client_id, produit_id, nb_produit)
                 case "d":
                     create_promotion(session: Session, produit_id:int, promotion_percent:int, region_id_promo:int)
+                case _:
+                    print("Erreur de saisie.")
+                    continue
+    except Exception as e:
+        print(f"Erreur : {e}")
+
+def delete_menu():
+    try:
+        while True:
+            clear_output(wait=True)
+            print("\n---DELETE Menu ---")
+            print("Fonctions possibles :")
+            print("  a : delete_objet")
+            print("  b : delete_filtre")
+
+       
+            action = input("Choisissez une action (a/b) : ").strip().lower()
+            clear_output(wait=True)
+            match action:
+                case "a":
+                    delete_objet(session: Session, table_nom, id)
+                case "b":
+                    delete_filtre(session: Session, filter_exp)
                 case _:
                     print("Erreur de saisie.")
                     continue
