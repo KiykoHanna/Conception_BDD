@@ -109,3 +109,4 @@ def create_promotion(session: Session, produit_id:int, promotion_percent:int, re
     except Exception as e:
         session.rollback()
         raise e
+    
