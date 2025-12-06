@@ -66,7 +66,7 @@ class Client(Base):
                            cascade="all, delete-orphan")
     commandes = relationship("Commande", back_populates="client")
 
-    #Produit
+#Produit
 
 class Platform(Base):
     __tablename__ = "platforms"
@@ -114,7 +114,7 @@ class Produit(Base):
     commande = relationship("Commande", back_populates="produit")
     promotions = relationship("Promotion", back_populates="produit")
 
-    # Promotions
+# Promotions
 
 class Promotion(Base):
     __tablename__ = "promotions"

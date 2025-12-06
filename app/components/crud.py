@@ -1,7 +1,8 @@
 # import
 from sqlalchemy.sql import func
-from components.models import Client, DonnePersonnel, Commande, Produit, Promotion, Age, Region
+from components.models import Log, Client, DonnePersonnel, Commande, Produit, Genre, Promotion, Age, Region, Platform, Publisher, Year
 from sqlalchemy.orm import Session
+import pandas as pd
 
 
 # Function pour CREATE un Client, DonnePersonnel, Commande, Produit, Promotion
@@ -112,6 +113,222 @@ def create_promotion(session: Session, produit_id:int, promotion_percent:int, re
 
 # READ
 
+def read_table(session: Session, table_class, limit=None, filter_exp=None):
+    """
+    Lit une table SQLAlchemy et renvoie les résultats dans un DataFrame.
+
+    Args:
+        table_class: Modèle SQLAlchemy (ex.: Client, Commande).
+        limit: Nombre maximum de lignes à retourner (optionnel).
+        filter_exp: Expression SQLAlchemy pour filtrer (optionnel).
+
+    Returns:
+        DataFrame contenant le résultat de la requête.
+
+    Raises:
+        Exception: If commit fails, the session is rolled back and the exception re-raised.
+    """
+
+    try:
+        query = session.query(table_class)
+        
+        if table_class is Client:
+            query.update(
+            {Client.date_derniere_utilisation: func.now()},
+            synchronize_session=False
+            )
+            session.commit()
+
+        if filter_exp is not None:
+            query = query.filter(filter_exp)
+        
+        if limit is not None:
+            query = query.limit(limit)
+        
+        df = pd.read_sql(query.statement, session.get_bind())
+        return df
+    
+    except Exception as e:
+        session.rollback()
+        raise e
+
+
+def read_promo(session: Session, limit=None, filter_exp=None):
+    """Interroger les promotions avec les noms des produits et les régions associées.
+    Cette fonction retourne un DataFrame contenant les promotions jointes aux produits,
+    ainsi qu'une chaîne formatée listant les régions pour chaque promotion.
+
+    Args:
+        limit (int, optional): Nombre maximal de lignes à retourner.
+        filter_exp (expression SQLAlchemy, optional): Expression de filtrage à appliquer.
+
+    Returns:
+        tuple:
+            - pandas.DataFrame: Résultats de la requête avec Promotion et Produit.name.
+            - str: Chaîne formatée listant les promotions et les régions associées.
+
+    Raises:
+        Exception: Toute exception levée pendant l'exécution de la requête est capturée et réémise.
+    """
+
+    try:
+        query = (session.query(
+            Promotion,
+            Produit.name
+            )).join(Produit, Produit.produit_id == Promotion.produit_id)
+        
+        if filter_exp is not None:
+            query = query.filter(filter_exp)
+        if limit is not None:
+            query = query.limit(limit)
+
+        df = pd.read_sql(query.statement, session.get_bind(), index_col="promotion_id")
+        
+        list_reg = ""
+        for promo, prod_name in query:
+            for reg in promo.regions:
+                list_reg += f"{promo.promotion_percent}% apply to {prod_name}: region -- {reg.region_nom}\n"
+        
+        return df, list_reg
+    
+    except Exception as e:
+        raise e
+
+def read_produit(session: Session, limit=None, filter_exp=None):
+    """Interroger les produits avec leurs informations détaillées.
+
+    Cette fonction retourne un DataFrame contenant les produits et les informations
+    associées provenant des tables liées : année, plateforme, genre et éditeur.
+
+    Args:
+        limit (int, optional): Nombre maximal de lignes à retourner.
+        filter_exp (expression SQLAlchemy, optional): Expression de filtrage à appliquer.
+
+    Returns:
+        pandas.DataFrame: Résultats de la requête avec les détails des produits.
+
+    Raises:
+        Exception: Toute exception levée pendant l'exécution de la requête est réémise.
+    """
+
+    try:
+        query = (
+            session.query(
+                Produit.produit_id, Produit.prix, Produit.name,
+                Year.year_nom.label("year_nom"),
+                Platform.platform_nom.label("platform_nom"),
+                Genre.genre_nom.label("genre_nom"),
+                Publisher.publisher_nom.label("publisher_nom")
+            )
+            .join(Year, Year.year_cod == Produit.year_n)
+            .join(Platform, Platform.platform_cod == Produit.platform_cod)
+            .join(Genre, Genre.genre_cod == Produit.genre_cod)
+            .join(Publisher, Publisher.publisher_cod == Produit.publisher_cod)
+        )
+        
+        if filter_exp is not None:
+            query = query.filter(filter_exp)
+        if limit is not None:
+            query = query.limit(limit)
+        
+        df = pd.read_sql(query.statement, session.get_bind())
+
+        return df
+    except Exception as e:
+        raise e
+
+
+def read_command(session: Session, limit=None, filter_exp=None):
+    """Interroger les commandes avec les informations sur le produit et la promotion.
+
+    Cette fonction retourne un DataFrame contenant les commandes, le nombre de produits,
+    le nom du produit et le pourcentage de promotion s'il existe.
+
+    Args:
+        limit (int, optional): Nombre maximal de lignes à retourner.
+        filter_exp (expression SQLAlchemy, optional): Expression de filtrage à appliquer.
+
+    Returns:
+        pandas.DataFrame: Résultats de la requête avec les détails des commandes.
+
+    Raises:
+        Exception: Toute exception levée pendant l'exécution de la requête est réémise.
+    """
+     
+    try:
+        query = (session.query(
+            Commande.commande_id,
+            Commande.nb_produit,
+            Commande.client_id,
+            Produit.name.label("produit_nom"),
+            Produit.prix.label("prix"),
+            Promotion.promotion_percent,
+            )
+        .join(Produit, Produit.produit_id == Commande.produit_id)
+        .outerjoin(Promotion, Promotion.produit_id == Commande.produit_id)
+        )
+        
+        if filter_exp is not None:
+            query = query.filter(filter_exp)
+        if limit is not None:
+            query = query.limit(limit)
+
+        df = pd.read_sql(query.statement, session.get_bind())
+        df["promotion_percent"] = df["promotion_percent"].fillna(0)
+        df['prix total'] = df["nb_produit"] * df["prix"] * (1 - (0.01 * df["promotion_percent"]))
+        return df
+    
+    except Exception as e:
+        raise e
+
+def read_client(session: Session, limit=None, filter_exp=None):
+    """
+    Récupère les informations des clients avec les données associées et le nombre de commandes.
+
+    Args:
+        limit (int, optional): Nombre maximum de clients à récupérer. Par défaut, None = tous.
+        filter_exp (Expression, optional): Expression SQLAlchemy pour filtrer les clients.
+                                           Exemple : Client.region_id == 0
+
+    Behavior:
+        - Joint les tables Age et Region pour récupérer les informations associées.
+        - Calcule le nombre de commandes par client.
+        - Applique un filtre et une limite si fournis.
+        - Retourne le résultat sous forme de DataFrame pandas.
+
+    Returns:
+        pandas.DataFrame: Contient les colonnes suivantes :
+            - client_id
+            - age_plage
+            - region_nom
+            - Nb_commande
+    """
+    try:
+        query = (
+            (session.query(
+            Client.client_id,
+            Age.age_plage,
+            Region.region_nom,
+            func.count(Commande.commande_id).label("Nb_commande")
+            ))
+            .join(Commande, Commande.client_id == Client.client_id)
+            .join(Age, Age.age_id == Client.age_id)
+            .join(Region, Region.region_id == Client.region_id)
+            ).group_by(Client.client_id)
+        
+        if filter_exp is not None:
+            query = query.filter(filter_exp)
+        
+        if limit is not None:
+            query = query.limit(limit)  
+
+        
+        df = pd.read_sql(query.statement, session.get_bind(), index_col="client_id")
+
+        return df
+    
+    except Exception as e:
+        raise e
 
 
 # UPDATE
@@ -152,6 +369,7 @@ def update_table(session: Session, table_nom, data_id, **kwargs):
 
 
 # DELETE
+
 def delete_objet(session: Session, table_nom, data_id):
     """
     Supprime un enregistrement spécifique d'une table SQLAlchemy.
@@ -207,3 +425,33 @@ def delete_filtre(session: Session, table_nom, filter_exp):
 
     except Exception as e:
         print(e)
+
+# LOGGING
+
+def add_log(session: Session, type_action, table_cible, client_id=None, details=None):
+    """Ajoute une entrée dans la table des logs.
+
+    Args:
+        session: session SQLAlchemy utilisée pour la connexion à la base de données
+        type_action (str): type d'action ("INSERT", "UPDATE", "DELETE", etc.)
+        table_cible (str): nom de la table concernée par l'action
+        client_id (int, optionnel): identifiant du client ou de l'utilisateur effectuant l'action
+        details (str, optionnel): informations complémentaires, par exemple au format JSON
+
+    Raises:
+        Exception: en cas d'erreur lors de l'insertion dans la table logs,
+                   la transaction est annulée (rollback) et l'exception est levée.
+    """
+    
+    try:
+        log_entry = Log(
+            type_action=type_action,
+            table_cible=table_cible,
+            client_id=client_id,
+            details=details
+        )
+        session.add(log_entry)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
