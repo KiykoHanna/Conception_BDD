@@ -86,7 +86,7 @@ def create_commande(session: Session, client_id, produit_id, nb_produit):
         session.rollback()
         raise e
     
-def create_promotion(session: Session, produit_id:int, promotion_percent:int, region_id_promo:int):
+def create_promotion(session: Session, produit_id:int, promotion_percent:int, region_id_promo:list):
     """Create a promotion for a given product and link it to a region.
 
     Args:
@@ -98,14 +98,19 @@ def create_promotion(session: Session, produit_id:int, promotion_percent:int, re
         Exception: If commit fails, the session is rolled back and the exception re-raised.
     """
     try:
-        region = session.query(Region).filter(Region.region_id==region_id_promo).first()
-
         obj = Promotion(
-            produit_id = produit_id,
-            promotion_percent = promotion_percent
-        )
-        obj.regions.append(region)
+                produit_id = produit_id,
+                promotion_percent = promotion_percent
+            )
+        
         session.add(obj)
+        
+        for i in region_id_promo:
+            region = session.query(Region).filter(Region.region_id==i).first()
+
+            obj.regions.append(region)
+
+        
         session.commit()
     except Exception as e:
         session.rollback()

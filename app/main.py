@@ -53,7 +53,7 @@ def menu_admin(session):
                     kwargs = json.loads(raw_kwargs) if raw_kwargs else {}
 
                     update_table(session, table_class, data_id, **kwargs)
-                    add_log(session, "update", table_nom, details="data_id: {data_id}")
+                    add_log(session, "update", table_nom, details=f"data_id: {data_id}")
                 case "d":
                     delete_menu(session)
                 case _:
@@ -90,7 +90,7 @@ def creation_menu(session):
 
             if action == "q":
                 break
-            
+
             match action:
 
                 # --- A ---
@@ -99,10 +99,10 @@ def creation_menu(session):
                     mot_de_passe = input("mot_de_passe : ").strip()
                     mot_de_passe_hash = hash(mot_de_passe)
                     create_donne_personnel(session, login, mot_de_passe_hash)
-                    age_id = int(input("age_id (0–3) : ").strip())
-                    region_id = int(input("region_id (0–3) : ").strip())
+                    age_id = int(input("age_id (1–4) : ").strip())
+                    region_id = int(input("region_id (1–4) : ").strip())
                     create_client(session, age_id, region_id)
-                    add_log(session, "create", "Client",  details="client_login: {login}")
+                    add_log(session, "create", "Client",  details=f"client_login: {login}")
 
                 # --- B ---
                 case "b":
@@ -118,8 +118,9 @@ def creation_menu(session):
                 case "c":
                     produit_id = int(input("produit_id : ").strip())
                     promotion_percent = int(input("promotion_percent : ").strip())
-                    region_id_promo = int(input("region_id_promo : ").strip())
-                    create_promotion(session, produit_id, promotion_percent, region_id_promo)
+                    region_id_promo = (input("region_id list (1 2 3 4) : ").split())
+                    region_id = [int(i) for i in region_id_promo]
+                    create_promotion(session, produit_id, promotion_percent, region_id)
                     add_log(session, "create", "Promotion")
 
                 # --- Autres ---
@@ -165,7 +166,8 @@ def read_menu(session):
             match action:
                 case "a":
                     res = read_promo(session, limit=limit, filter_exp=filter_exp)
-                    print(res)
+                    print(res[0], end="\n")
+                    print(res[1])
                 case "b":
                     res = read_produit(session, limit=limit, filter_exp=filter_exp)
                     print(res)
@@ -215,14 +217,14 @@ def delete_menu(session):
                     table_class = tables.get(table_nom)
                     obj_id = int(input("ID de l'objet à supprimer : ").strip())
                     delete_objet(session, table_class, obj_id)
-                    add_log(session, "delete", table_nom, details="obj_id: {obj_id}")
+                    add_log(session, "delete", table_nom, details=f"obj_id: {obj_id}")
                 case "b":
                     table_nom = input("Nom de la table : ").strip()
                     table_class = tables.get(table_nom)
                     filter_exp = eval(input("Filtre SQLAlchemy (ex: Table.col == valeur) : ").strip())
 
                     delete_filtre(session, table_class, filter_exp)
-                    add_log(session, "delete", table_nom, details="condution: {filter_exp}")
+                    add_log(session, "delete", table_nom, details=f"condution: {filter_exp}")
                 case _:
                     print("Erreur de saisie.")
                     continue
