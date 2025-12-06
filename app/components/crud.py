@@ -73,7 +73,7 @@ def create_commande(session: Session, client_id, produit_id, nb_produit):
         Exception: If the session commit fails. The session will be rolled back and the exception re-raised.
     """
     try:
-        promo = session.query(Promotion).filter(Promotion.produit_id=={produit_id}).first()
+        promo = session.query(Promotion).filter(Promotion.produit_id==produit_id).first()
         promo_id = promo.promotion_id if promo else 0
         session.add(Commande(
             client_id = client_id,

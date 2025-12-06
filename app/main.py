@@ -2,6 +2,7 @@
 
 from IPython.display import clear_output
 import json
+import os
 
 from sqlalchemy import  create_engine
 from sqlalchemy.orm import sessionmaker
@@ -68,35 +69,26 @@ def creation_menu(session):
             clear_output(wait=True)
             print("\n--- CREATION Menu ---")
             print("Fonctions possibles :")
-            print("  a : create_donne_personnel")
             print("  b : create_client")
             print("  c : create_commande")
             print("  d : create_promotion")
 
-            action = input("Choisissez une action (a/b/c/d) : ").strip().lower()
+            action = input("Choisissez une action (b/c/d) : ").strip().lower()
             clear_output(wait=True)
 
             match action:
 
-                # --- A ---
-                case "a":
+                # --- B ---
+                case "b":
                     login = input("login : ").strip()
                     mot_de_passe = input("mot_de_passe : ").strip()
                     mot_de_passe_hash = hash(mot_de_passe)
                     create_donne_personnel(session, login, mot_de_passe_hash)
-
-                # --- B ---
-                case "b":
                     age_id = int(input("age_id (0–3) : ").strip())
                     region_id = int(input("region_id (0–3) : ").strip())
                     create_client(session, age_id, region_id)
 
                 # --- C ---
-                case "c":
-                    client_id = int(input("client_id : ").strip())
-                    produit_id = int(input("produit_id : ").strip())
-                    nb_produit = int(input("nb_produit : ").strip())
-                    create_commande(session, client_id, produit_id, nb_produit)
 
                 # --- D ---
                 case "d":
@@ -143,7 +135,7 @@ def read_menu(session):
             # --- Filter (placeholder simple) ---
             # Здесь можно вводить SQLAlchemy-выражения, но для простоты используем None
             filter = input("Filter expression (laisser vide pour aucun) : ").strip()
-            filter_exp = (filter) if filter else None
+            filter_exp = eval(filter) if filter else None
 
             match action:
                 case "a":
@@ -188,7 +180,7 @@ def delete_menu(session):
                     delete_objet(session, table_nom, obj_id)
                 case "b":
                     table_nom = input("Nom de la table : ").strip()
-                    filter_exp = input("Filtre SQLAlchemy (ex: Table.col == valeur) : ").strip()
+                    filter_exp = eval(input("Filtre SQLAlchemy (ex: Table.col == valeur) : ").strip())
 
                     delete_filtre(session, table_nom, filter_exp)
                 case _:
@@ -199,8 +191,8 @@ def delete_menu(session):
 
 
 def main():
-    # Création de l'engine
-    engine = create_engine("sqlite:///BD_Ventes_de_jeux_video.db") 
+    db_path = os.path.join(os.path.dirname(__file__), "BD_Ventes_de_jeux_video.db")
+    engine = create_engine(f"sqlite:///{db_path}")
 
     # Création de la session
     Session = sessionmaker(bind=engine)
