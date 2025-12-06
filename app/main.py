@@ -7,8 +7,8 @@ import os
 from sqlalchemy import  create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
-from components.models import *           # или точечные импорты
-from components.crud import *             # или точечные импорты
+from components.models import *           
+from components.crud import *             
 
 
 def menu_admin(session):
@@ -20,6 +20,15 @@ def menu_admin(session):
     """
     try:
         while True:
+            tables = {
+                        "Commande": Commande,
+                        "Client": Client,
+                        "Promotion": Promotion,
+                        "DonnePersonnel": DonnePersonnel,
+                        "Produit": Produit
+                    } 
+            
+
             clear_output(wait=True)
             print("\n--- Menu ---")
             print("Fonctions possibles :")
@@ -36,13 +45,15 @@ def menu_admin(session):
                 case "r":
                     read_menu(session)
                 case "u":
-                    table_nom = str(input("Table: "))
+                    table_nom = input("Nom de la table : ").strip()
+                    table_class = tables.get(table_nom)
                     data_id = int(input("ID: "))
                     raw_kwargs = input("kwargs (en JSON, ex: {\"name\": \"Alice\"}): ")
 
                     kwargs = json.loads(raw_kwargs) if raw_kwargs else {}
 
-                    update_table(session, table_nom, data_id, **kwargs)
+                    update_table(session, table_class, data_id, **kwargs)
+                    add_log(session, "update", table_nom, details="data_id: {data_id}")
                 case "d":
                     delete_menu(session)
                 case _:
@@ -69,17 +80,21 @@ def creation_menu(session):
             clear_output(wait=True)
             print("\n--- CREATION Menu ---")
             print("Fonctions possibles :")
-            print("  b : create_client")
-            print("  c : create_commande")
-            print("  d : create_promotion")
+            print("  a : create_client")
+            print("  b : create_commande")
+            print("  c : create_promotion")
+            print("  q : quitter")
 
-            action = input("Choisissez une action (b/c/d) : ").strip().lower()
+            action = input("Choisissez une action (a/b/c/q) : ").strip().lower()
             clear_output(wait=True)
 
+            if action == "q":
+                break
+            
             match action:
 
-                # --- B ---
-                case "b":
+                # --- A ---
+                case "a":
                     login = input("login : ").strip()
                     mot_de_passe = input("mot_de_passe : ").strip()
                     mot_de_passe_hash = hash(mot_de_passe)
@@ -87,15 +102,25 @@ def creation_menu(session):
                     age_id = int(input("age_id (0–3) : ").strip())
                     region_id = int(input("region_id (0–3) : ").strip())
                     create_client(session, age_id, region_id)
+                    add_log(session, "create", "Client",  details="client_login: {login}")
+
+                # --- B ---
+                case "b":
+
+                    client_id = input("client_id : ").strip()
+                    produit_id = input("produit_id : ").strip()
+                    nb_produit = input("nb_produit : ").strip()
+                    create_commande(session, client_id, produit_id, nb_produit)
+                    add_log(session, "create", "Commande")
 
                 # --- C ---
 
-                # --- D ---
-                case "d":
+                case "c":
                     produit_id = int(input("produit_id : ").strip())
                     promotion_percent = int(input("promotion_percent : ").strip())
                     region_id_promo = int(input("region_id_promo : ").strip())
                     create_promotion(session, produit_id, promotion_percent, region_id_promo)
+                    add_log(session, "create", "Promotion")
 
                 # --- Autres ---
                 case _:
@@ -164,25 +189,40 @@ def delete_menu(session):
 
     try:
         while True:
+            tables = {
+                "Commande": Commande,
+                "Client": Client,
+                "Promotion": Promotion,
+                "DonnePersonnel": DonnePersonnel,
+                "Produit": Produit
+            } 
             clear_output(wait=True)
             print("\n---DELETE Menu ---")
             print("Fonctions possibles :")
             print("  a : delete_objet")
             print("  b : delete_filtre")
+            print("  q : quitter")
             
-            action = input("Choisissez une action (a/b) : ").strip().lower()
+            action = input("Choisissez une action (a/b/q) : ").strip().lower()
             clear_output(wait=True)
+
+            if action == "q":
+                break
 
             match action:
                 case "a":
                     table_nom = input("Nom de la table : ").strip()
-                    obj_id = input("ID de l'objet à supprimer : ").strip()
-                    delete_objet(session, table_nom, obj_id)
+                    table_class = tables.get(table_nom)
+                    obj_id = int(input("ID de l'objet à supprimer : ").strip())
+                    delete_objet(session, table_class, obj_id)
+                    add_log(session, "delete", table_nom, details="obj_id: {obj_id}")
                 case "b":
                     table_nom = input("Nom de la table : ").strip()
+                    table_class = tables.get(table_nom)
                     filter_exp = eval(input("Filtre SQLAlchemy (ex: Table.col == valeur) : ").strip())
 
-                    delete_filtre(session, table_nom, filter_exp)
+                    delete_filtre(session, table_class, filter_exp)
+                    add_log(session, "delete", table_nom, details="condution: {filter_exp}")
                 case _:
                     print("Erreur de saisie.")
                     continue
